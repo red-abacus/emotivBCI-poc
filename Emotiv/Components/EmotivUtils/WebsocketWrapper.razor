@@ -9,30 +9,102 @@
 
 @if (webSocket.State == WebSocketState.Open)
 {
-    <form @onsubmit="(async () => await SendMessageAsync(message))">
-        Message: <input @bind="@message" />
-        <button type="submit">Send</button>
-    </form>
-
-    <button @onclick="@AuthorizeClient">Authorize and start session</button>
+    <button class="btn btn-primary" @onclick="@AuthorizeClient">Authorize and start session</button>
 }
 
-<pre>@log</pre>
+@foreach(var log in logs)
+{
+    <p>@log</p>
+}
 
 @code {
     CancellationTokenSource disposalTokenSource = new CancellationTokenSource();
     ClientWebSocket webSocket = new ClientWebSocket();
-    string message = "Hello, websocket!";
-    string log = "";
+    List<string> logs = new List<string>();
+
+    //TODO: move constants to appSettings.json
     string clientSecret = "2ZCvP22OjdRy5CLQFDPUQ6gpseChy8gxdjvDzjLGa1ySDlig2jGNoJzsT2LRc0x5FQCDGJODspnZn1myPkTuuGHoaOXRCzkxQZEyzH00RKoDtW3LypUqRtORWD6EP967";
     string clientId = "tJhtbPk5KrZvy8xaQAgaBc0GLCx1g30zAuVjWNO6";
     string headset = "INSIGHT-A2D202C0";
+
     string cortexToken = string.Empty;
+    string sessionId = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         await webSocket.ConnectAsync(new Uri("wss://localhost:6868"), disposalTokenSource.Token);
         _ = ReceiveLoop();
+    }
+    async Task SendMessageAsync(string jsonMsg)
+    {
+        AppendLog($"Sending: {jsonMsg}\n");
+        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(jsonMsg));
+        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
+    }
+
+    async Task ReceiveLoop()
+    {
+        var buffer = new ArraySegment<byte>(new byte[10240]);
+        while (!disposalTokenSource.IsCancellationRequested)
+        {
+            var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
+            var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
+            AppendLog($"Received: {receivedAsText}\n");
+
+            // TODO do this differently, it looks ugly and it's not very efficient
+            // Although, what other options are besides regex (which is slower) or deserializing (which is slower and more complex)?
+            // Maybe a switch statement?
+            if (receivedAsText.Contains(nameof(cortexToken)))
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(cortexToken))
+                    {
+                        UpdateCortexToken(receivedAsText);
+                        await CreateSession();
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+            else if (receivedAsText.Contains("com.abac.abac"))
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(sessionId))
+                    {
+                        UpdateSessionId(String.Concat(receivedAsText));
+                        await CreateSubscription();
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+            else
+            {
+                // TODO process other logs
+            }
+
+
+            StateHasChanged();
+        }
+    }
+    
+    private void AppendLog(string log)
+    {
+        // Insert the new log at the beginning of the list
+        logs.Insert(0, log);
+
+        // Check if the list exceeds the limit of 35 items
+        if (logs.Count > 35)
+        {
+            // Remove the last item in the list
+            logs.RemoveAt(logs.Count - 1);
+        }
     }
 
     async Task RequestAccess()
@@ -50,7 +122,7 @@
         };
 
         var requestMessage = JsonSerializer.Serialize(requestObject);
-        log += $"Sending: {requestMessage}\n";
+        AppendLog($"Sending: {requestMessage}\n");
         await SendMessageAsync(requestMessage);
     }
 
@@ -72,7 +144,7 @@
         };
 
         var authMessage = JsonSerializer.Serialize(authObject);
-        log += $"Sending: {authMessage}\n";
+        AppendLog($"Sending: {authMessage}\n");
         await SendMessageAsync(authMessage);
     }
 
@@ -92,54 +164,33 @@
         };
 
         var createSessionMessage = JsonSerializer.Serialize(createSessionObject);
-        log += $"Sending: {createSessionMessage}\n";
+        AppendLog($"Sending: {createSessionMessage}\n");
         await SendMessageAsync(createSessionMessage);
     }
 
     async Task CreateSubscription()
     {
-       
-    }
-
-    async Task SendMessageAsync(string? jsonMsg = null)
-    {
-        if (string.IsNullOrEmpty(jsonMsg))
+        var createSubscriptionObject = new
         {
-            jsonMsg = message;
-        }
-        log += $"Sending: {jsonMsg}\n";
-        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(jsonMsg));
-        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
-    }
-
-    async Task ReceiveLoop()
-    {
-        var buffer = new ArraySegment<byte>(new byte[1024]);
-        while (!disposalTokenSource.IsCancellationRequested)
-        {
-            var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
-            var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
-            log += $"Received: {receivedAsText}\n";
-
-            if (receivedAsText.Contains(nameof(cortexToken)))
+            id = 1,
+            jsonrpc = "2.0",
+            method = "subscribe",
+            @params = new
             {
-                try
-                {
-                    UpdateCortexToken(receivedAsText);
-                    await CreateSession();
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
+                cortexToken,
+                session = sessionId,
+                streams = new string[] { "fac" }
             }
-            StateHasChanged();
-        }
+        };
+
+        var createSubscriptionMessage = JsonSerializer.Serialize(createSubscriptionObject);
+        AppendLog($"Sending: {createSubscriptionMessage}\n");
+        await SendMessageAsync(createSubscriptionMessage);
     }
 
+    
     private void UpdateCortexToken(string text)
     {
-        cortexToken = text;
         try
         {
             using (JsonDocument doc = JsonDocument.Parse(text))
@@ -168,6 +219,39 @@
             // Handle or log the exception
         }
     }
+
+    private void UpdateSessionId(string text)
+    {
+        try
+        {
+            using (JsonDocument doc = JsonDocument.Parse(text))
+            {
+                JsonElement root = doc.RootElement;
+
+                if (root.TryGetProperty("result", out JsonElement resultElement))
+                {
+                    if (resultElement.TryGetProperty("id", out JsonElement idElement))
+                    {
+                        sessionId = idElement.GetString();
+                    }
+                    else
+                    {
+                        // Handle the case where "id" is not present
+                    }
+                }
+                else
+                {
+                    // Handle the case where "result" is not present
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            // Handle or log the exception
+        }
+    }
+
+
 
 
     public void Dispose()
