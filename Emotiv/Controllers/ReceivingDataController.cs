@@ -8,25 +8,16 @@ namespace Controllers
     {
 
         [HttpPatch("start")]
-        [ProducesResponseType(typeof(bool), 200)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(403)]
         [ProducesResponseType(500)]
-        public ActionResult StartAnalizing()
+        public async Task<ActionResult> StartAnalizing()
         {
             Configurations.AnalizeData = true;
-            return Ok(true);
-        }
-
-        [HttpPatch("stop")]
-        [ProducesResponseType(typeof(bool), 200)]
-        [ProducesResponseType(401)]
-        [ProducesResponseType(403)]
-        [ProducesResponseType(500)]
-        public IActionResult StopAnalizing()
-        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
             Configurations.AnalizeData = false;
-            return Ok(false);
+            return Ok();
         }
     }
 }
