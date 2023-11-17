@@ -1,19 +1,146 @@
 ﻿@page "/counter"
+@using System.Net.WebSockets
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Serialization
 @rendermode InteractiveServer
 
 <PageTitle>Counter</PageTitle>
 
+
 <h1>Counter</h1>
+<h3>State: @webSocket.State</h3>
 
-<p role="status">Current count: @currentCount</p>
+@if (webSocket.State == WebSocketState.Open)
+{
+    <form @onsubmit="@SendMessageAsync">
+        Message: <input @bind="@message" />
+        <button type="submit">Send</button>
+    </form>
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+    <button @onclick="@AuthorizeClient">Authorize and start session</button>
+}
+
+<pre>@log</pre>
+
+<h3>Cortex Token: @cortexToken</h3>
+
 
 @code {
-    private int currentCount = 0;
+    CancellationTokenSource disposalTokenSource = new CancellationTokenSource();
+    ClientWebSocket webSocket = new ClientWebSocket();
+    string message = "Hello, websocket!";
+    string log = "";
+    string secret = "2ZCvP22OjdRy5CLQFDPUQ6gpseChy8gxdjvDzjLGa1ySDlig2jGNoJzsT2LRc0x5FQCDGJODspnZn1myPkTuuGHoaOXRCzkxQZEyzH00RKoDtW3LypUqRtORWD6EP967";
+    string clientId = "tJhtbPk5KrZvy8xaQAgaBc0GLCx1g30zAuVjWNO6";
+    string headset = "INSIGHT-A2D202C0";
+    string cortexToken = string.Empty;
 
-    private void IncrementCount()
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await webSocket.ConnectAsync(new Uri("wss://localhost:6868"), disposalTokenSource.Token);
+        _ = ReceiveLoop();
+    }
+
+    async Task AuthorizeClient()
+    {
+        var authMessage =
+            $"{{" +
+            $"\"id\": 1," +
+            $"\"jsonrpc\": \"2.0\"," +
+            $"\"method\": \"authorize\"," +
+            $"\"params\": {{\"clientId\": \"{clientId}\", \"clientSecret\": \"{secret}\", \"debit\" : 1}} " +
+            $"}}";
+
+        log += $"Sending: {authMessage}\n";
+        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(authMessage));
+        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
+    }
+
+    async Task SendMessageAsync()
+    {
+        log += $"Sending: {message}\n";
+        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message));
+        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
+    }
+
+    async Task ReceiveLoop()
+    {
+        var buffer = new ArraySegment<byte>(new byte[1024]);
+        while (!disposalTokenSource.IsCancellationRequested)
+        {
+            var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
+            var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
+            log += $"Received: {receivedAsText}\n";
+
+            if (receivedAsText.Contains("cortexToken"))
+            {
+                // var token = receivedAsText.Split("corexToken:")[1].Trim().TrimEnd('}');
+                try
+                {
+                    UpdateCortexToken(String.Format(receivedAsText));
+
+                }
+                catch (Exception)
+                {
+
+                    throw;
+                }
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateCortexToken(string text)
+    {
+        cortexToken = text;
+        try
+        {
+            using (JsonDocument doc = JsonDocument.Parse(text))
+            {
+                JsonElement root = doc.RootElement;
+
+                if (root.TryGetProperty("result", out JsonElement resultElement))
+                {
+                    if (resultElement.TryGetProperty("cortexToken", out JsonElement tokenElement))
+                    {
+                        cortexToken = tokenElement.GetString();
+                    }
+                    else
+                    {
+                        // Handle the case where "cortexToken" is not present
+                    }
+                }
+                else
+                {
+                    // Handle the case where "result" is not present
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            // Handle or log the exception
+        }
+    }
+
+
+    public void Dispose()
+    {
+        disposalTokenSource.Cancel();
+        _ = webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye", CancellationToken.None);
+    }
+
+
+    public class AuthResult
+    {
+        public int Id { get; set; }
+        public string Jsonrpc { get; set; }
+        public Result Result { get; set; }
+    }
+
+    public class Result
+    {
+        [JsonPropertyName("cortexToken")]
+        public string CortexToken { get; set; }
     }
 }
