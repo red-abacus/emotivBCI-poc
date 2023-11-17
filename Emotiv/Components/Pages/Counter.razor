@@ -9,20 +9,7 @@
 
 
 <h1>Counter</h1>
-<h3>State: @webSocket.State</h3>
-
-@if (webSocket.State == WebSocketState.Open)
-{
-    <form @onsubmit="(async () => await SendMessageAsync(message))">
-        Message: <input @bind="@message" />
-        <button  type="submit">Send</button>
-    </form>
-
-    <button @onclick="@AuthorizeClient">Authorize and start session</button>
-}
-
-<pre>@log</pre>
-
+<Emotiv.Components.EmotivUtils.WebsocketWrapper></Emotiv.Components.EmotivUtils.WebsocketWrapper>
 @code{
 
 }

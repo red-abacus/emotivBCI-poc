@@ -1,0 +1,175 @@
+﻿@using System.Net.WebSockets
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Serialization
+
+<h3>Emotiv Websocket</h3>
+
+<h3>State: @webSocket.State</h3>
+
+@if (webSocket.State == WebSocketState.Open)
+{
+    <form @onsubmit="(async () => await SendMessageAsync(message))">
+        Message: <input @bind="@message" />
+        <button type="submit">Send</button>
+    </form>
+
+    <button @onclick="@AuthorizeClient">Authorize and start session</button>
+}
+
+<pre>@log</pre>
+
+@code {
+    CancellationTokenSource disposalTokenSource = new CancellationTokenSource();
+    ClientWebSocket webSocket = new ClientWebSocket();
+    string message = "Hello, websocket!";
+    string log = "";
+    string clientSecret = "2ZCvP22OjdRy5CLQFDPUQ6gpseChy8gxdjvDzjLGa1ySDlig2jGNoJzsT2LRc0x5FQCDGJODspnZn1myPkTuuGHoaOXRCzkxQZEyzH00RKoDtW3LypUqRtORWD6EP967";
+    string clientId = "tJhtbPk5KrZvy8xaQAgaBc0GLCx1g30zAuVjWNO6";
+    string headset = "INSIGHT-A2D202C0";
+    string cortexToken = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await webSocket.ConnectAsync(new Uri("wss://localhost:6868"), disposalTokenSource.Token);
+        _ = ReceiveLoop();
+    }
+
+    async Task RequestAccess()
+    {
+        var requestObject = new
+        {
+            id = 1,
+            jsonrpc = "2.0",
+            method = "requestAccess",
+            @params = new
+            {
+                clientId,
+                clientSecret
+            }
+        };
+
+        var requestMessage = JsonSerializer.Serialize(requestObject);
+        log += $"Sending: {requestMessage}\n";
+        await SendMessageAsync(requestMessage);
+    }
+
+    async Task AuthorizeClient()
+    {
+        await RequestAccess();
+
+        var authObject = new
+        {
+            id = 1,
+            jsonrpc = "2.0",
+            method = "authorize",
+            @params = new
+            {
+                clientId,
+                clientSecret,
+                debit = 1
+            }
+        };
+
+        var authMessage = JsonSerializer.Serialize(authObject);
+        log += $"Sending: {authMessage}\n";
+        await SendMessageAsync(authMessage);
+    }
+
+    async Task CreateSession()
+    {
+        var createSessionObject = new
+        {
+            id = 1,
+            jsonrpc = "2.0",
+            method = "createSession",
+            @params = new
+            {
+                cortexToken,
+                headset,
+                status = "active"
+            }
+        };
+
+        var createSessionMessage = JsonSerializer.Serialize(createSessionObject);
+        log += $"Sending: {createSessionMessage}\n";
+        await SendMessageAsync(createSessionMessage);
+    }
+
+    async Task SendMessageAsync(string? jsonMsg = null)
+    {
+        if (string.IsNullOrEmpty(jsonMsg))
+        {
+            jsonMsg = message;
+        }
+        log += $"Sending: {jsonMsg}\n";
+        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(jsonMsg));
+        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
+    }
+
+    async Task ReceiveLoop()
+    {
+        var buffer = new ArraySegment<byte>(new byte[1024]);
+        while (!disposalTokenSource.IsCancellationRequested)
+        {
+            var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
+            var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
+            log += $"Received: {receivedAsText}\n";
+
+            if (receivedAsText.Contains(nameof(cortexToken)))
+            {
+                try
+                {
+                    UpdateCortexToken(receivedAsText);
+                    await CreateSession();
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateCortexToken(string text)
+    {
+        cortexToken = text;
+        try
+        {
+            using (JsonDocument doc = JsonDocument.Parse(text))
+            {
+                JsonElement root = doc.RootElement;
+
+                if (root.TryGetProperty("result", out JsonElement resultElement))
+                {
+                    if (resultElement.TryGetProperty("cortexToken", out JsonElement tokenElement))
+                    {
+                        cortexToken = tokenElement.GetString();
+                    }
+                    else
+                    {
+                        // Handle the case where "cortexToken" is not present
+                    }
+                }
+                else
+                {
+                    // Handle the case where "result" is not present
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            // Handle or log the exception
+        }
+    }
+
+
+    public void Dispose()
+    {
+        disposalTokenSource.Cancel();
+        _ = webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye", CancellationToken.None);
+    }
+
+}
+
