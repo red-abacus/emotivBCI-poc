@@ -1,19 +1,15 @@
 ﻿@page "/counter"
+@using System.Net.WebSockets
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Serialization
 @rendermode InteractiveServer
 
 <PageTitle>Counter</PageTitle>
 
+
 <h1>Counter</h1>
+<Emotiv.Components.EmotivUtils.WebsocketWrapper></Emotiv.Components.EmotivUtils.WebsocketWrapper>
+@code{
 
-<p role="status">Current count: @currentCount</p>
-
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
-
-@code {
-    private int currentCount = 0;
-
-    private void IncrementCount()
-    {
-        currentCount++;
-    }
 }
