@@ -96,6 +96,11 @@
         await SendMessageAsync(createSessionMessage);
     }
 
+    async Task CreateSubscription()
+    {
+       
+    }
+
     async Task SendMessageAsync(string? jsonMsg = null)
     {
         if (string.IsNullOrEmpty(jsonMsg))
