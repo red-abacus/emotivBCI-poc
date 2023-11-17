@@ -69,13 +69,14 @@
                     throw;
                 }
             }
+            // TODO maybe change this property to something more specific, although the subscription response is quite generic
             else if (receivedAsText.Contains("com.abac.abac"))
             {
                 try
                 {
                     if (string.IsNullOrEmpty(sessionId))
                     {
-                        UpdateSessionId(String.Concat(receivedAsText));
+                        UpdateSessionId(receivedAsText);
                         await CreateSubscription();
                     }
                 }
