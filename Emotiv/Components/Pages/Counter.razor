@@ -7,13 +7,44 @@
 
 <p role="status">Current count: @currentCount</p>
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<button class="btn btn-primary" @onclick="Reject">Reject</button>
+<button class="btn btn-primary" @onclick="Accept">Accept</button>
+
+<div style="padding: 30px; width: 360px; background-color: @BackgroundColor;">
+    <img src="@ImagePath" alt="@ImagePath" style="width: 300px; height: 300px" />
+</div>
 
 @code {
+    private List<string> ImagePaths = ["images/orange.jpg", "images/orange_2.jpg", "images/blueberry.jpg"];
+    private int CurrentImage = 0;
+    private string ImagePath = "images/orange.jpg";
+    private string BackgroundColor = "white";
+    private bool Loading = false;
+
     private int currentCount = 0;
 
-    private void IncrementCount()
+    private async Task Accept()
     {
-        currentCount++;
+        BackgroundColor = "green";
+        Loading = true;
+        await Task.Delay(1000);
+        Loading = false;
+
+        CurrentImage++;
+        ImagePath = ImagePaths[(CurrentImage % ImagePaths.Count)];
+        BackgroundColor = "white";
     }
+
+    private async Task Reject()
+    {
+        BackgroundColor = "red";
+        Loading = true;
+        await Task.Delay(1000);
+        Loading = false;
+
+        CurrentImage++;
+        ImagePath = ImagePaths[(CurrentImage % ImagePaths.Count)];
+        BackgroundColor = "white";
+    }
+
 }
