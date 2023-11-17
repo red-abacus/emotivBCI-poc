@@ -15,7 +15,7 @@ namespace Controllers
         public async Task<ActionResult> StartAnalizing()
         {
             Configurations.AnalizeData = true;
-            await Task.Delay(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
             Configurations.AnalizeData = false;
             return Ok();
         }
