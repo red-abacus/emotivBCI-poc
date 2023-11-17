@@ -7,7 +7,7 @@ namespace Controllers
     public class ReceivingDataController : Controller
     {
 
-        [HttpPatch()]
+        [HttpPatch("start")]
         [ProducesResponseType(typeof(bool), 200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(403)]
@@ -18,7 +18,7 @@ namespace Controllers
             return Ok(true);
         }
 
-        [HttpPatch()]
+        [HttpPatch("stop")]
         [ProducesResponseType(typeof(bool), 200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(403)]
