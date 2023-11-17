@@ -26,6 +26,7 @@
     string clientSecret = "2ZCvP22OjdRy5CLQFDPUQ6gpseChy8gxdjvDzjLGa1ySDlig2jGNoJzsT2LRc0x5FQCDGJODspnZn1myPkTuuGHoaOXRCzkxQZEyzH00RKoDtW3LypUqRtORWD6EP967";
     string clientId = "tJhtbPk5KrZvy8xaQAgaBc0GLCx1g30zAuVjWNO6";
     string headset = "INSIGHT-A2D202C0";
+    int MAX_LOGS = 35;
 
     string cortexToken = string.Empty;
     string sessionId = string.Empty;
@@ -97,13 +98,10 @@
     
     private void AppendLog(string log)
     {
-        // Insert the new log at the beginning of the list
         logs.Insert(0, log);
 
-        // Check if the list exceeds the limit of 35 items
-        if (logs.Count > 35)
+        if (logs.Count > MAX_LOGS)
         {
-            // Remove the last item in the list
             logs.RemoveAt(logs.Count - 1);
         }
     }
