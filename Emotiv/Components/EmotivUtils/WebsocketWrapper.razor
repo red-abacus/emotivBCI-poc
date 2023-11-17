@@ -2,6 +2,9 @@
 @using System.Text
 @using System.Text.Json
 @using System.Text.Json.Serialization
+@using Emotiv.Models
+@using Emotiv.Services.ExpressionsInterpreter
+@inject IExpressionsInterpreterService ExpressionsInterpreterService
 
 <h3>State: @webSocket.State</h3>
 
@@ -10,7 +13,7 @@
     <button class="btn btn-primary" @onclick="@AuthorizeClient">Authorize and start session</button>
 }
 
-@foreach(var log in logs)
+@foreach (var log in logs)
 {
     <p>@log</p>
 }
@@ -19,11 +22,6 @@
     CancellationTokenSource disposalTokenSource = new CancellationTokenSource();
     ClientWebSocket webSocket = new ClientWebSocket();
     List<string> logs = new List<string>();
-
-    //TODO: move constants to appSettings.json
-    string clientSecret = "2ZCvP22OjdRy5CLQFDPUQ6gpseChy8gxdjvDzjLGa1ySDlig2jGNoJzsT2LRc0x5FQCDGJODspnZn1myPkTuuGHoaOXRCzkxQZEyzH00RKoDtW3LypUqRtORWD6EP967";
-    string clientId = "tJhtbPk5KrZvy8xaQAgaBc0GLCx1g30zAuVjWNO6";
-    string headset = "INSIGHT-A2D202C0";
     int MAX_LOGS = 35;
 
     string cortexToken = string.Empty;
@@ -43,7 +41,7 @@
 
     async Task ReceiveLoop()
     {
-        var buffer = new ArraySegment<byte>(new byte[10240]);
+        var buffer = new ArraySegment<byte>(new byte[5120]);
         while (!disposalTokenSource.IsCancellationRequested)
         {
             var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
@@ -84,16 +82,43 @@
                     throw;
                 }
             }
+            else if (receivedAsText.Contains("\"fac\":["))
+            {
+                var obj = ProcessMessage(receivedAsText);
+                ExpressionsInterpreterService.InterpretLog(obj);
+
+            }
             else
             {
-                // TODO process other logs
+                // TODO interpret other messages
             }
-
 
             StateHasChanged();
         }
     }
-    
+    private FacialExpression ProcessMessage(string receivedAsText)
+    {
+        using (JsonDocument doc = JsonDocument.Parse(receivedAsText))
+        {
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("fac", out JsonElement elements))
+            {
+                var facArray = elements.EnumerateArray().ToList();
+
+                var obj = new FacialExpression
+                    {
+                        EyeAction = Enum.Parse<FaceActions>(facArray[0].ToString(), true),
+                        UpperFaceAction = Enum.Parse<FaceActions>(facArray[1].ToString()),
+                        UpperFacePower = double.Parse(facArray[2].ToString()),
+                        LowerFaceAction = Enum.Parse<FaceActions>(facArray[3].ToString()),
+                        LowerFacePower = double.Parse(facArray[4].ToString()),
+                    };
+                return obj;
+            }
+        }
+        return null;
+    }
     private void AppendLog(string log)
     {
         logs.Insert(0, log);
@@ -113,8 +138,8 @@
             method = "requestAccess",
             @params = new
             {
-                clientId,
-                clientSecret
+                clientId = WebsocketConfigurations.ClientId,
+                clientSecret = WebsocketConfigurations.ClientSecret
             }
         };
 
@@ -134,8 +159,8 @@
             method = "authorize",
             @params = new
             {
-                clientId,
-                clientSecret,
+                clientId = WebsocketConfigurations.ClientId,
+                clientSecret = WebsocketConfigurations.ClientSecret,
                 debit = 1
             }
         };
@@ -155,7 +180,7 @@
             @params = new
             {
                 cortexToken,
-                headset,
+                headset = WebsocketConfigurations.Headset,
                 status = "active"
             }
         };
@@ -185,7 +210,7 @@
         await SendMessageAsync(createSubscriptionMessage);
     }
 
-    
+
     private void UpdateCortexToken(string text)
     {
         try
@@ -247,9 +272,6 @@
             // Handle or log the exception
         }
     }
-
-
-
 
     public void Dispose()
     {
