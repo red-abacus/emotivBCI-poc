@@ -21,7 +21,7 @@ public static class ExpressionConstants
              {"winkL", true},
              {"winkR", true},
              {"horiEye", false},
-             {"surprise", false},
+             {"surprise", true},
              {"frown", false},
              {"smile", true},
              {"clench", false},
