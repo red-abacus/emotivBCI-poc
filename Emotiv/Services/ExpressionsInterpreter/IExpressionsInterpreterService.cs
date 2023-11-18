@@ -6,5 +6,5 @@ public interface IExpressionsInterpreterService
 {
     void InterpretLog(FacialExpression log);
     void StartAnalizing();
-    bool StopAnalizing();
+    Task StopAnalysisAndSendResult();
 }

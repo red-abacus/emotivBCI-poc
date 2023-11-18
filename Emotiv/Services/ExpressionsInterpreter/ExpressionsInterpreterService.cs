@@ -1,4 +1,7 @@
 ﻿using Emotiv.Models;
+using Microsoft.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace Emotiv.Services.ExpressionsInterpreter;
 
@@ -6,11 +9,13 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
 {
     private Dictionary<string, List<double>> _values;
     private bool _isAnalizing;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public ExpressionsInterpreterService()
+    public ExpressionsInterpreterService(IHttpClientFactory httpClientFactory)
     {
         _values = new Dictionary<string, List<double>>();
         _isAnalizing = false;
+        _httpClientFactory = httpClientFactory;
     }
 
     public void InterpretLog(FacialExpression facialExpression)
@@ -43,7 +48,7 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
         _isAnalizing = true;
     }
 
-    public bool StopAnalizing()
+    public async Task StopAnalysisAndSendResult()
     {
         _isAnalizing = false;
         var result = string.Empty;
@@ -57,6 +62,19 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
             }
             result += $"{key} {avg}\n";
         }
-        return ExpressionConstants.PositivenessCorrespondence[maxAvgExpression.expression];
+
+        var isHot = ExpressionConstants.PositivenessCorrespondence[maxAvgExpression.expression];
+        var httpRequestMessage = new HttpRequestMessage(
+           HttpMethod.Post,
+           "https://3d8a-2a02-2f0e-300c-a300-29aa-e636-98e9-f7bc.ngrok.io/")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                rating = isHot ? "HOT" : "NOT_HOT",
+                no = "no"
+            }), Encoding.UTF8, "application/json")
+        };
+        var httpClient = _httpClientFactory.CreateClient();
+        var response = await httpClient.SendAsync(httpRequestMessage);
     }
 }
