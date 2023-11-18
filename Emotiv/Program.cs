@@ -1,5 +1,7 @@
 using Emotiv.Components;
 using Emotiv.Services.ExpressionsInterpreter;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +10,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<IExpressionsInterpreterService, ExpressionsInterpreterService>();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 app.UseWebSockets();
@@ -28,12 +31,15 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.MapGet("/analyze", async (IExpressionsInterpreterService expressionInterpreter) =>
+app.MapPost("/start-analysis", async (IExpressionsInterpreterService expressionInterpreter) =>
 {
-    expressionInterpreter.StartAnalizing();
-    await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
-    var result = expressionInterpreter.StopAnalizing();
-    return new { result };
+    new Task(async () =>
+    {
+        expressionInterpreter.StartAnalizing();
+        await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
+        await expressionInterpreter.StopAnalysisAndSendResult();
+    }).Start();
+    return;
 });
 
 app.Run();
