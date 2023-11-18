@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Content Remove="Components\Pages\Home.razor" />
+    <Content Remove="Components\Pages\Weather.razor" />
+  </ItemGroup>
+
 </Project>
