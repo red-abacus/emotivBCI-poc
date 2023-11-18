@@ -33,13 +33,10 @@ app.MapRazorComponents<App>()
 
 app.MapPost("/start-analysis", async (IExpressionsInterpreterService expressionInterpreter) =>
 {
-    new Task(async () =>
-    {
-        expressionInterpreter.StartAnalizing();
-        await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
-        await expressionInterpreter.StopAnalysisAndSendResult();
-    }).Start();
-    return;
+    expressionInterpreter.StartAnalizing();
+    await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
+    var result = expressionInterpreter.StopAnalysisAndSendResult();
+    return result;
 });
 
 app.Run();

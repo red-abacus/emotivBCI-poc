@@ -48,11 +48,15 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
         _isAnalizing = true;
     }
 
-    public async Task StopAnalysisAndSendResult()
+    public bool StopAnalysisAndSendResult()
     {
         _isAnalizing = false;
         var result = string.Empty;
         (string expression, double value) maxAvgExpression = (string.Empty, 0);
+
+        (string expression, double value) smileAvgExpression = (string.Empty, 0);
+        (string expression, double value) frownAvgExpression = (string.Empty, 0);
+
         foreach (var key in _values.Keys)
         {
             var avg = _values[key].Select(power => power).Average();
@@ -60,21 +64,42 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
             {
                 maxAvgExpression = (key, avg);
             }
+            if (key == "smile")
+            {
+                smileAvgExpression = ("smile", avg);
+            }
+            if (key == "frown")
+            {
+                frownAvgExpression = ("frown", avg);
+            }
             result += $"{key} {avg}\n";
         }
+        var isHot = false;
 
-        var isHot = ExpressionConstants.PositivenessCorrespondence[maxAvgExpression.expression];
-        var httpRequestMessage = new HttpRequestMessage(
-           HttpMethod.Post,
-           "https://3d8a-2a02-2f0e-300c-a300-29aa-e636-98e9-f7bc.ngrok.io/")
+        Console.WriteLine("\"########################## " + JsonSerializer.Serialize(result));
+
+        if (smileAvgExpression.value > frownAvgExpression.value)
         {
-            Content = new StringContent(JsonSerializer.Serialize(new
-            {
-                rating = isHot ? "HOT" : "NOT_HOT",
-                no = "no"
-            }), Encoding.UTF8, "application/json")
-        };
-        var httpClient = _httpClientFactory.CreateClient();
-        var response = await httpClient.SendAsync(httpRequestMessage);
+            maxAvgExpression = smileAvgExpression;
+            Console.WriteLine($"########################## Smile {smileAvgExpression.expression} {smileAvgExpression.value}");
+            isHot = true;
+        }
+        else if (frownAvgExpression.value > smileAvgExpression.value)
+        {
+            maxAvgExpression = frownAvgExpression;
+            Console.WriteLine($"########################## Frown {frownAvgExpression.expression} {frownAvgExpression.value} ");
+            isHot = false;
+        }
+        else if (maxAvgExpression.expression != string.Empty)
+        {
+            isHot = ExpressionConstants.PositivenessCorrespondence[maxAvgExpression.expression];
+            Console.WriteLine($"########################## {maxAvgExpression.expression} {maxAvgExpression.value} ");
+        }
+        else
+        {
+            Console.WriteLine($"########################## Attention! No reaction recorded ");
+        }
+        Console.WriteLine($"########################## {isHot}");
+        return isHot;
     }
 }
