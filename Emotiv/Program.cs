@@ -28,11 +28,12 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.MapGet("/analyze", async (IExpressionsInterpreterService expressionInterpreter) => { 
+app.MapGet("/analyze", async (IExpressionsInterpreterService expressionInterpreter) =>
+{
     expressionInterpreter.StartAnalizing();
     await Task.Delay(TimeSpan.FromSeconds(Configurations.ProcessingTimeSeconds));
-    var result  = expressionInterpreter.StopAnalizing();
-    return result;
+    var result = expressionInterpreter.StopAnalizing();
+    return new { result };
 });
 
 app.Run();

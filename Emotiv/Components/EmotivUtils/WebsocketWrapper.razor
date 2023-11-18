@@ -108,10 +108,10 @@
 
                 var obj = new FacialExpression
                     {
-                        EyeAction = Enum.Parse<FaceActions>(facArray[0].ToString(), true),
-                        UpperFaceAction = Enum.Parse<FaceActions>(facArray[1].ToString()),
+                        EyeAction = facArray[0].ToString(),
+                        UpperFaceAction = facArray[1].ToString(),
                         UpperFacePower = double.Parse(facArray[2].ToString()),
-                        LowerFaceAction = Enum.Parse<FaceActions>(facArray[3].ToString()),
+                        LowerFaceAction = facArray[3].ToString(),
                         LowerFacePower = double.Parse(facArray[4].ToString()),
                     };
                 return obj;
