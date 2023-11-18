@@ -5,30 +5,28 @@
 /// </summary>
 public class FacialExpression
 {
-    public FaceActions EyeAction { get; set; }
-    public FaceActions UpperFaceAction { get; set; }
+    public string EyeAction { get; set; }
+    public string UpperFaceAction { get; set; }
     public double UpperFacePower { get; set; }
-    public FaceActions LowerFaceAction { get; set; }
+    public string LowerFaceAction { get; set; }
     public double LowerFacePower { get; set; }
 }
-
-
-public enum FaceActions
+public static class ExpressionConstants
 {
-    frown,
-    smile,
-    clench,
-    // The values below are not used in the current version of the app
-    neutral,
-    blink,
-    winkL,
-    winkR,
-    horiEye,
-    surprise,
-    laugh,
-    smirkLeft,
-    smirkRight,
-    lookL,
-    lookR
+    public static Dictionary<string, bool> PositivenessCorrespondence =
+        new Dictionary<string, bool>
+        {
+             {"neutral", true},
+             {"blink", false},
+             {"winkL", true},
+             {"winkR", true},
+             {"horiEye", false},
+             {"surprise", false},
+             {"frown", false},
+             {"smile", true},
+             {"clench", false},
+             {"laugh", true},
+             {"smirkLeft ", false},
+             {"smirkRighk", false}
+        };
 }
-

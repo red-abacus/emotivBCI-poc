@@ -4,12 +4,12 @@ namespace Emotiv.Services.ExpressionsInterpreter;
 
 public class ExpressionsInterpreterService : IExpressionsInterpreterService
 {
-    private Dictionary<FaceActions, List<double>> _values;
+    private Dictionary<string, List<double>> _values;
     private bool _isAnalizing;
 
     public ExpressionsInterpreterService()
     {
-        _values = new Dictionary<FaceActions, List<double>>();
+        _values = new Dictionary<string, List<double>>();
         _isAnalizing = false;
     }
 
@@ -43,16 +43,20 @@ public class ExpressionsInterpreterService : IExpressionsInterpreterService
         _isAnalizing = true;
     }
 
-    public string StopAnalizing()
+    public bool StopAnalizing()
     {
         _isAnalizing = false;
         var result = string.Empty;
-        
+        (string expression, double value) maxAvgExpression = (string.Empty, 0);
         foreach (var key in _values.Keys)
         {
             var avg = _values[key].Select(power => power).Average();
+            if (avg > maxAvgExpression.value)
+            {
+                maxAvgExpression = (key, avg);
+            }
             result += $"{key} {avg}\n";
         }
-        return result;
+        return ExpressionConstants.PositivenessCorrespondence[maxAvgExpression.expression];
     }
 }
